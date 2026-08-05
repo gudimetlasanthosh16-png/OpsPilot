@@ -1,0 +1,33 @@
+# Secrets & Env
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+
+# SQLite & Trajectories
+*.sqlite
+*.sqlite3
+opspilot_trajectories.sqlite
+
+# VectorDB Cache
+data/chroma_db/
+.chroma/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

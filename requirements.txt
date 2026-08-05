@@ -1,0 +1,12 @@
+pydantic>=2.0.0
+openai>=1.0.0
+python-dotenv>=1.0.0
+rich>=13.0.0
+chromadb>=0.4.0
+sentence-transformers>=2.2.2
+fpdf2>=2.8.0
+langgraph>=0.0.26
+langchain-core>=0.1.30
+fastapi>=0.100.0
+uvicorn>=0.23.0
+langgraph-checkpoint-sqlite>=2.0.0
