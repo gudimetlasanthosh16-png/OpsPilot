@@ -41,7 +41,6 @@ class OpsPilotAgent:
             self.free_models = [
                 model or "llama-3.3-70b-versatile",
                 "llama-3.1-8b-instant",
-                "meta-llama/llama-4-maverick-17b-128e-instruct",
                 "gemma2-9b-it"
             ]
         elif openai_key:
@@ -232,9 +231,11 @@ You must:
 
     def reasoning_node(self, state: AgentState):
         if self.callbacks and "on_thought" in self.callbacks:
-            self.callbacks["on_thought"]("Initializing OpsPilot Agent via OpenRouter...")
+            self.callbacks["on_thought"]("Initializing OpsPilot Agent...")
             
         response = None
+        self.current_model_idx = 0  # Always reset model index on each reasoning step
+        
         while self.current_model_idx < len(self.free_models):
             current_model = self.free_models[self.current_model_idx]
             try:
@@ -251,14 +252,12 @@ You must:
                     self.callbacks["on_thought"](f"Rate limit exceeded on model '{current_model}'. Shifting to next free model...")
                 self.current_model_idx += 1
             except Exception as err:
-                # If function call parsing error occurred, shift model or fallback
-                if "tool_use_failed" in str(err) or "failed_generation" in str(err):
+                if "tool_use_failed" in str(err) or "failed_generation" in str(err) or "decommissioned" in str(err):
                     if self.callbacks and "on_thought" in self.callbacks:
-                        self.callbacks["on_thought"](f"Malformed tool call from model '{current_model}'. Retrying with next model...")
+                        self.callbacks["on_thought"](f"Model '{current_model}' error ({str(err)[:60]}...). Retrying with next model...")
                     self.current_model_idx += 1
                 else:
                     raise err
-
                 
         if self.current_model_idx >= len(self.free_models):
             return {"is_resolved": False, "final_report": "System Error: All free models have exceeded their rate limits."}
