@@ -14,7 +14,9 @@ env/
 # SQLite & Trajectories
 *.sqlite
 *.sqlite3
-opspilot_trajectories.sqlite
+*.sqlite-*
+opspilot_trajectories.sqlite*
+
 
 # VectorDB Cache
 data/chroma_db/
@@ -31,3 +33,6 @@ frontend/.vite/
 .idea/
 .DS_Store
 Thumbs.db
+# Temporary text extracts
+pdf_text.txt
+pdf_text_*.txt
