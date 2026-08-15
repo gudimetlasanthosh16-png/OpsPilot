@@ -75,7 +75,25 @@ python -m opspilot.cli
 
 4. **Configure your environment variables:**
    - Copy `.env.example` to `.env`
-   - Add your `OPENROUTER_API_KEY` to the `.env` file.
+   - Powered by **Puter.js AI Engine** — Zero API Keys or external server setup required!
+
+### 🔑 Backup & Alternative LLM Provider Keys (Reference)
+OpsPilot uses **Puter.js AI Engine** by default in both CLI and Web UI. For reference or emergency fallback, the following provider keys and endpoints are documented:
+
+```env
+# Pollinations AI Key
+POLLINATIONS_API_KEY=sk_GJIb7YOgiMB1E179PBcbmEeveKPtZCLt
+# Base URL: https://text.pollinations.ai/openai
+
+# Groq API Key (High Speed)
+GROQ_API_KEY=your_groq_key_here
+# Base URL: https://api.groq.com/openai/v1
+
+# OpenRouter / OpenAI / Gemini (Standard Open-AI Spec APIs)
+# OPENROUTER_API_KEY=your_key_here (https://openrouter.ai/api/v1)
+# OPENAI_API_KEY=your_key_here (https://api.openai.com/v1)
+# GEMINI_API_KEY=your_key_here (https://generativelanguage.googleapis.com/v1beta/openai/)
+```
 
 ## 💻 Usage
 

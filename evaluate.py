@@ -22,6 +22,7 @@ def run_evaluation():
     
     for idx, scenario in enumerate(scenarios):
         print(f"Running scenario {idx+1}/{len(scenarios)}: {scenario['id']}")
+        time.sleep(2)
         start_time = time.time()
         
         # Fresh agent instance for each scenario
@@ -57,23 +58,25 @@ def run_evaluation():
             if is_resolved and final_report:
                 try:
                     report_data = json.loads(final_report)
-                    if "report" in report_data:
-                        actual_root_cause = report_data["report"].get("root_cause", "")
-                        evidence_list = report_data["report"].get("evidence", [])
-                    else:
-                        actual_root_cause = report_data.get("root_cause", "")
-                        evidence_list = report_data.get("evidence", [])
-                except json.JSONDecodeError:
-                    actual_root_cause = final_report
+                    if isinstance(report_data, dict):
+                        if "report" in report_data and isinstance(report_data["report"], dict):
+                            actual_root_cause = report_data["report"].get("root_cause", "") or "Unknown"
+                            evidence_list = report_data["report"].get("evidence", []) or []
+                        else:
+                            actual_root_cause = report_data.get("root_cause", "") or "Unknown"
+                            evidence_list = report_data.get("evidence", []) or []
+                except (json.JSONDecodeError, TypeError):
+                    actual_root_cause = str(final_report)
                     
-            if len(evidence_list) > 0:
+            if evidence_list and len(evidence_list) > 0:
                 evidence_grounded_count += 1
             
+            actual_root_cause_str = str(actual_root_cause or "")
             # Flexible keyword matching for evaluation
             expected_keywords = [kw.lower() for kw in scenario["expected_root_cause"].split() if len(kw) > 3]
-            matched = any(kw in actual_root_cause.lower() for kw in expected_keywords)
+            matched = any(kw in actual_root_cause_str.lower() for kw in expected_keywords)
             
-            if "System Error" in final_report or "Aborted" in final_report:
+            if final_report and ("System Error" in final_report or "Aborted" in final_report or "aborted" in final_report):
                 matched = False
                 actual_root_cause = final_report
 
@@ -115,7 +118,7 @@ def run_evaluation():
     investigation_success_rate = (success_count / total_scenarios) * 100 if total_scenarios > 0 else 0
     avg_tool_calls = (total_tool_calls / total_scenarios) if total_scenarios > 0 else 0
     tool_selection_accuracy = 100.0 if total_tool_calls > 0 else 0.0
-    tool_arg_accuracy = 96.5
+    tool_arg_accuracy = (valid_arg_count / total_tool_calls * 100) if total_tool_calls > 0 else 0.0
     unnecessary_call_rate = (unnecessary_tool_calls / total_tool_calls * 100) if total_tool_calls > 0 else 0.0
     loop_completion_rate = (loop_completed_count / total_scenarios) * 100 if total_scenarios > 0 else 0
     evidence_groundedness = (evidence_grounded_count / total_scenarios) * 100 if total_scenarios > 0 else 0

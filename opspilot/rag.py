@@ -73,3 +73,4 @@ def search_knowledge_base(query: str, n_results: int = 3) -> str:
         return "\n\n".join(formatted_results)
     except Exception as e:
         return f"Error searching knowledge base: {str(e)}"
+        
