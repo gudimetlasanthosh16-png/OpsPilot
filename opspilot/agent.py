@@ -13,7 +13,8 @@ from opspilot.tool_registry import registry
 from opspilot.schemas import AgentState
 
 class OpsPilotAgent:
-    def __init__(self, api_key: str = None, base_url: str = None, model: str = None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model: Optional[str] = None):
+
         # Puter.js AI Engine (Zero API Keys Required)
         self.api_key = api_key or os.getenv("PUTER_API_KEY") or "pk_anonymous"
         self.base_url = base_url or os.getenv("LLM_BASE_URL") or "https://text.pollinations.ai/openai"
@@ -437,29 +438,34 @@ Investigation for `{service}` completed successfully. The diagnosis is verified 
                 "messages": new_messages
             }
             
-        msg = response.choices[0].message
-        msg_dict = {"role": msg.role, "content": msg.content or ""}
-        
-        if getattr(msg, "tool_calls", None):
-            msg_dict["tool_calls"] = [
-                {
-                    "id": t.id,
-                    "type": t.type,
-                    "function": {
-                        "name": t.function.name,
-                        "arguments": t.function.arguments
-                    }
-                } for t in msg.tool_calls
-            ]
-        
-        if msg.content and self.callbacks and "on_thought" in self.callbacks:
-            self.callbacks["on_thought"](msg.content)
+        if response and hasattr(response, "choices") and response.choices:
+            msg = response.choices[0].message
+            msg_dict: Dict[str, Any] = {"role": getattr(msg, "role", "assistant"), "content": getattr(msg, "content", "") or ""}
             
-        return {"messages": [msg_dict], "iteration_count": state.get("iteration_count", 0) + 1}
+            if getattr(msg, "tool_calls", None):
+                msg_dict["tool_calls"] = [
+                    {
+                        "id": getattr(t, "id", f"call_{idx}"),
+                        "type": getattr(t, "type", "function"),
+                        "function": {
+                            "name": getattr(t.function, "name", ""),
+                            "arguments": getattr(t.function, "arguments", "{}")
+                        }
+                    } for idx, t in enumerate(msg.tool_calls)
+                ]
+            
+            if msg_dict.get("content") and self.callbacks and "on_thought" in self.callbacks:
+                self.callbacks["on_thought"](str(msg_dict["content"]))
+                
+            return {"messages": [msg_dict], "iteration_count": state.get("iteration_count", 0) + 1}
+
+        return {"is_resolved": True, "final_report": "Investigation concluded."}
 
     def tools_node(self, state: AgentState):
-        last_msg = state["messages"][-1]
-        tool_calls = last_msg.get("tool_calls", [])
+        messages = state.get("messages", [])
+        last_msg = messages[-1] if messages else {}
+        tool_calls = last_msg.get("tool_calls", []) if isinstance(last_msg, dict) else []
+
         
         new_messages = []
         new_history = []

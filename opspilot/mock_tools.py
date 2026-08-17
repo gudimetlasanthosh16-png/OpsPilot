@@ -1,4 +1,5 @@
 import json
+from typing import Optional, List, Dict, Any
 
 def query_metrics(service: str, metric_name: str, duration: str) -> str:
     """Mock querying metrics from a system like Datadog/Prometheus."""
@@ -30,7 +31,8 @@ def query_metrics(service: str, metric_name: str, duration: str) -> str:
         
     return json.dumps({"service": service, "metric": metric_name, "status": "critical", "value": f"Anomaly detected: 4.2x latency surge and 18% error rate on {service}", "normal_value": "nominal baseline", "start_time": "2 hours ago"})
 
-def search_logs(service: str, error_level: str, keyword: str = None) -> str:
+def search_logs(service: str, error_level: str, keyword: Optional[str] = None) -> str:
+
     """Mock searching logs in a system like Splunk/Datadog."""
     srv = service.lower() if service else "service"
     
@@ -164,10 +166,13 @@ def retrieve_runbook(service: str, issue_type: str = "") -> str:
         ]
     })
 
-def create_incident_report(root_cause: str, confidence: float, evidence: list, recommended_action: str, summary: str = "", recommendations: list = None) -> str:
+def create_incident_report(root_cause: str, confidence: float, evidence: Optional[List[str]] = None, recommended_action: str = "", summary: str = "", recommendations: Optional[List[str]] = None) -> str:
     """Creates a structured incident report and sets it in the agent state."""
+    if evidence is None:
+        evidence = []
     if recommendations is None:
         recommendations = []
+
     return json.dumps({
         "status": "Report generated",
         "report": {
