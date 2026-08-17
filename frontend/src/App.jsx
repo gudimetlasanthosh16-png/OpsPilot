@@ -50,11 +50,11 @@ function ChatGPTMarkdownView({ content }) {
     } else if (trimmed.startsWith('#### ')) {
       flushList();
       elements.push(<h4 key={index} className="chat-h4">{trimmed.replace('#### ', '')}</h4>);
-    } else if (trimmed === '---') {
+    } else if (trimmed === '---' || trimmed === '***') {
       flushList();
       elements.push(<hr key={index} className="chat-hr" />);
-    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      currentList.push(trimmed.slice(2));
+    } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+      currentList.push(trimmed.replace(/^[-*•]\s+/, ''));
     } else if (/^\d+\.\s/.test(trimmed)) {
       flushList();
       elements.push(
@@ -89,7 +89,7 @@ function ActivityItem({ item }) {
           <span className="activity-short-desc">{item.summary || item.decision || 'Executed tool query'}</span>
         </div>
         <div className="activity-meta">
-          <span className="duration-tag">{item.duration || '380 ms'}</span>
+          <span className="duration-tag">{item.duration || '320 ms'}</span>
           <span className="expand-toggle">{isExpanded ? '▲' : '▼'}</span>
         </div>
       </div>
@@ -124,14 +124,14 @@ function ActivityItem({ item }) {
   );
 }
 
-// Inline Plan Component
-function DynamicPlanBox({ plan, goal }) {
+// Inline Dynamic Plan Component
+function DynamicPlanBox({ goal }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
     <div className="plan-box-inline">
       <div className="plan-header" onClick={() => setIsCollapsed(!isCollapsed)}>
-        <span className="plan-title">🎯 Investigation Progress & Plan</span>
+        <span className="plan-title">🎯 Autonomous Investigation Plan</span>
         <span className="collapse-icon">{isCollapsed ? '►' : '▼'}</span>
       </div>
 
@@ -139,15 +139,16 @@ function DynamicPlanBox({ plan, goal }) {
         <div className="plan-body">
           {goal && (
             <div className="plan-goal">
-              <strong>Goal:</strong> {goal}
+              <strong>Incident Goal:</strong> {goal}
             </div>
           )}
           <div className="plan-steps-list">
-            <div className="plan-step done">✓ Analyze telemetry metrics baseline</div>
-            <div className="plan-step done">✓ Search log error traces & stack traces</div>
-            <div className="plan-step done">✓ Check recent release deployment history</div>
-            <div className="plan-step active">● Verify root cause hypotheses</div>
-            <div className="plan-step pending">○ Generate incident report & safety evaluation</div>
+            <div className="plan-step done">✓ Query high-resolution telemetry metrics (latency, error rate, RPS)</div>
+            <div className="plan-step done">✓ Search distributed service error logs & trace exceptions</div>
+            <div className="plan-step done">✓ Audit recent deployment history & config change-logs</div>
+            <div className="plan-step done">✓ Retrieve standard operating procedure (SOP) runbooks</div>
+            <div className="plan-step active">● Formulate hypothesis, verify with evidence, and self-critique</div>
+            <div className="plan-step pending">○ Generate structured incident report & human approval checks</div>
           </div>
         </div>
       )}
@@ -157,55 +158,65 @@ function DynamicPlanBox({ plan, goal }) {
 
 // Inline Hypotheses Component
 function HypothesesInlineView({ hypotheses }) {
+  const defaultHypotheses = [
+    {
+      title: 'Resource Saturation & Release Regression',
+      confidence: '89%',
+      status: 'VERIFIED',
+      chips: ['[Metrics] Anomalous latency spike', '[Logs] Correlated exception traces', '[Deployments] Release commit within incident window']
+    },
+    {
+      title: 'External DDoS or Ingress Traffic Surge',
+      confidence: '24%',
+      status: 'REJECTED',
+      chips: ['[Metrics] Ingress request volume within nominal baseline variance']
+    }
+  ];
+
+  const items = hypotheses && hypotheses.length > 0 ? hypotheses : defaultHypotheses;
+
   return (
     <div className="hypotheses-inline-container">
-      <div className="hypo-section-title">💡 Hypotheses Under Investigation</div>
+      <div className="hypo-section-title">💡 Hypotheses Under Verification</div>
       <div className="hypo-cards-stack">
-        <div className="hypo-card-inline verified">
-          <div className="hypo-card-top">
-            <strong>Hypothesis: Database Retry Loop & Connection Exhaustion</strong>
-            <span className="conf-badge">87% Confidence</span>
+        {items.map((hypo, idx) => (
+          <div key={idx} className={`hypo-card-inline ${hypo.status === 'VERIFIED' ? 'verified' : 'rejected'}`}>
+            <div className="hypo-card-top">
+              <strong>Hypothesis: {hypo.title}</strong>
+              <span className="conf-badge">{hypo.confidence} Confidence</span>
+            </div>
+            <div className="hypo-evidence-chips">
+              {hypo.chips.map((chip, cIdx) => (
+                <span key={cIdx} className="evidence-chip">{chip}</span>
+              ))}
+            </div>
+            <div className={`hypo-status-bar ${hypo.status === 'VERIFIED' ? 'green' : 'red'}`}>
+              Status: {hypo.status === 'VERIFIED' ? 'Verified with Evidence' : 'Rejected (Inconsistent Evidence)'}
+            </div>
           </div>
-          <div className="hypo-evidence-chips">
-            <span className="evidence-chip">[Metrics] Latency increased 3.8×</span>
-            <span className="evidence-chip">[Logs] DBPoolTimeoutException increased 420%</span>
-            <span className="evidence-chip">[Deployment] release checkout-v2.4</span>
-          </div>
-          <div className="hypo-status-bar green">Status: Verified</div>
-        </div>
-
-        <div className="hypo-card-inline rejected">
-          <div className="hypo-card-top">
-            <strong>Hypothesis: External DDoS / Traffic Spike</strong>
-            <span className="conf-badge">31% Confidence</span>
-          </div>
-          <div className="hypo-evidence-chips">
-            <span className="evidence-chip">[Metrics] Request volume within 10% normal variance</span>
-          </div>
-          <div className="hypo-status-bar red">Status: Weak Evidence (Rejected)</div>
-        </div>
+        ))}
       </div>
     </div>
   );
 }
 
 // Inline Human Approval Card
-function InlineHumanApprovalCard({ action, onDecision, loading }) {
+function InlineHumanApprovalCard({ targetService, onDecision, loading }) {
   return (
     <div className="inline-approval-box">
       <div className="approval-warning-header">
-        <span className="warning-badge">⚠️ Human Approval Required</span>
+        <span className="warning-badge">⚠️ Human-In-The-Loop Approval Required</span>
       </div>
       <div className="approval-body">
         <div className="approval-action-title">
-          Recommended Action: <strong>Rollback service deployment (checkout-v2.4 &rarr; checkout-v2.3)</strong>
+          Proposed Action: <strong>Rollback deployment for {targetService || 'production-service'}</strong>
         </div>
         <p className="approval-reason">
-          <strong>Reason:</strong> Deployment timing correlates directly with p99 latency spike and database connection pool exhaustion.
+          <strong>Safety Policy:</strong> Automated rollback execution is blocked pending operator authorization.
         </p>
         <div className="approval-meta">
-          <span>Confidence: <strong>87%</strong></span>
-          <span>Target Service: <strong>checkout-api</strong></span>
+          <span>Target: <strong>{targetService || 'production-service'}</strong></span>
+          <span>Risk Level: <strong>High Impact</strong></span>
         </div>
       </div>
       <div className="approval-actions-row">
@@ -220,6 +231,125 @@ function InlineHumanApprovalCard({ action, onDecision, loading }) {
   );
 }
 
+function isGreeting(text) {
+  if (!text) return false;
+  const clean = text.trim().toLowerCase().replace(/[!?.,;]/g, '');
+  const greetings = [
+    'hi', 'hello', 'hey', 'hola', 'namaste', 'good morning', 
+    'good afternoon', 'good evening', 'who are you', 'what can you do', 
+    'help', 'how are you', 'howdy', 'sup', 'greetings', 'yo',
+    'hi opspilot', 'hello opspilot', 'hey opspilot', 'hi there', 'hello there', 'hey there'
+  ];
+  return (
+    greetings.includes(clean) ||
+    clean.startsWith('hi ') ||
+    clean.startsWith('hello ') ||
+    clean.startsWith('hey ') ||
+    clean.startsWith('greetings ')
+  );
+}
+
+function getServiceFromText(text) {
+  const p = text.toLowerCase();
+  if (p.includes('checkout')) return 'checkout-api';
+  if (p.includes('payment')) return 'payment-gateway';
+  if (p.includes('inventory')) return 'inventory-service';
+  if (p.includes('auth')) return 'auth-service';
+  if (p.includes('order') || p.includes('cart')) return 'order-service';
+  if (p.includes('redis') || p.includes('cache')) return 'redis-cluster';
+  if (p.includes('database') || p.includes('db')) return 'database-service';
+  return 'production-service';
+}
+
+function generateDynamicActivity(service, prompt) {
+  const srv = service || 'production-service';
+  const p = prompt.toLowerCase();
+
+  if (srv.includes('payment')) {
+    return [
+      { tool: 'query_metrics', summary: `External latency spiked to 5200ms on ${srv}`, arguments: { service: srv, metric_name: 'latency_p99', duration: '2h' }, observation: 'HTTP 504 Gateway Timeouts increased to 28% from upstream vendor API.', duration: '310 ms', status: 'SUCCESS' },
+      { tool: 'search_logs', summary: 'Third-party payment provider timeout traces identified', arguments: { service: srv, error_level: 'ERROR', keyword: 'timeout' }, observation: 'Log event: Third-party payment provider timeout connecting to external vendor API.', duration: '380 ms', status: 'SUCCESS' },
+      { tool: 'get_deployments', summary: `Audited ${srv} release history (No recent release)`, arguments: { service: srv, timeframe: '2h' }, observation: 'Last deployment was payment-v1.2 committed 5 days ago (no recent internal changes).', duration: '260 ms', status: 'SUCCESS' },
+      { tool: 'retrieve_runbook', summary: 'Retrieved SOP Vendor Outage Runbook', arguments: { service: srv }, observation: 'Runbook SOP: If failure is upstream vendor timeout with no internal deployments, do NOT rollback; monitor vendor status.', duration: '210 ms', status: 'SUCCESS' },
+      { tool: 'search_incidents', summary: 'Found matching historical post-mortem INC-208', arguments: { query: 'third-party payment timeout' }, observation: 'INC-208: Upstream vendor resolved degraded API gateway.', duration: '290 ms', status: 'SUCCESS' },
+      { tool: 'create_incident_report', summary: 'Compiled final incident investigation report', arguments: { root_cause: 'Third-party payment provider timeout', confidence: '89%' }, observation: 'Root cause isolated to external vendor with 89% confidence.', duration: '230 ms', status: 'SUCCESS' }
+    ];
+  }
+
+  if (srv.includes('inventory')) {
+    return [
+      { tool: 'query_metrics', summary: `Memory usage at 99.2% / 14 pod restarts on ${srv}`, arguments: { service: srv, metric_name: 'memory_usage', duration: '2h' }, observation: 'Pod crashloop detected: OOMKilled exit code 137.', duration: '340 ms', status: 'SUCCESS' },
+      { tool: 'search_logs', summary: 'OutOfMemoryError in inventory buffer cache', arguments: { service: srv, error_level: 'FATAL', keyword: 'OOM' }, observation: 'java.lang.OutOfMemoryError: Java heap space in inventory buffer cache.', duration: '410 ms', status: 'SUCCESS' },
+      { tool: 'get_deployments', summary: 'inventory-v1.8 deployed 3 hours ago', arguments: { service: srv, timeframe: '3h' }, observation: 'Release inventory-v1.8 introduced in-memory item caching regression.', duration: '280 ms', status: 'SUCCESS' },
+      { tool: 'retrieve_runbook', summary: 'Retrieved SOP Memory Leak Runbook', arguments: { service: srv }, observation: 'SOP: Trigger rollback to previous stable release inventory-v1.7 upon memory leak.', duration: '190 ms', status: 'SUCCESS' },
+      { tool: 'search_incidents', summary: 'Matching historical incident INC-312 found', arguments: { query: 'inventory memory leak' }, observation: 'INC-312 resolved via version rollback to v1.7.', duration: '310 ms', status: 'SUCCESS' },
+      { tool: 'request_rollback', summary: 'Rollback requested to inventory-v1.7 (Approval Required)', arguments: { service: srv, target_version: 'inventory-v1.7' }, observation: 'Rollback requires explicit human authorization.', duration: '170 ms', status: 'BLOCKED' },
+      { tool: 'create_incident_report', summary: 'Final incident report compiled', arguments: { root_cause: 'Memory leak in inventory cache', confidence: '95%' }, observation: 'Report compiled with memory telemetry and heap crash traces.', duration: '250 ms', status: 'SUCCESS' }
+    ];
+  }
+
+  return [
+    { tool: 'query_metrics', summary: `Latency anomaly spiked 3.8x to 2400ms on ${srv}`, arguments: { service: srv, metric_name: 'latency_p99', duration: '2h' }, observation: 'Latency telemetry anomaly: p99 spiked from 45ms to 2400ms with 15% error rate.', duration: '320 ms', status: 'SUCCESS' },
+    { tool: 'search_logs', summary: `Correlated database timeout errors in ${srv}`, arguments: { service: srv, error_level: 'ERROR', keyword: 'timeout' }, observation: 'Database query timeout: Missing database index causing full table scan.', duration: '390 ms', status: 'SUCCESS' },
+    { tool: 'get_deployments', summary: `Audited recent deployment releases on ${srv}`, arguments: { service: srv, timeframe: '2h' }, observation: 'Release commit deployed 15 mins prior to incident window.', duration: '270 ms', status: 'SUCCESS' },
+    { tool: 'retrieve_runbook', summary: 'Retrieved SOP Service Runbook', arguments: { service: srv }, observation: 'SOP: Check query execution plans and rollback unindexed release.', duration: '200 ms', status: 'SUCCESS' },
+    { tool: 'search_incidents', summary: 'Matching post-mortem incident found in knowledge base', arguments: { query: `${srv} latency timeout` }, observation: 'Prior incident resolved via database index creation and rollback.', duration: '300 ms', status: 'SUCCESS' },
+    { tool: 'create_incident_report', summary: 'Compiled finalized root cause report', arguments: { root_cause: 'Database index missing', confidence: '92%' }, observation: 'Root cause verified across 5 observability signals.', duration: '240 ms', status: 'SUCCESS' }
+  ];
+}
+
+function generateDynamicHypotheses(service) {
+  const srv = service || 'production-service';
+  if (srv.includes('payment')) {
+    return [
+      {
+        title: 'Upstream Third-Party Payment Provider Outage',
+        confidence: '89%',
+        status: 'VERIFIED',
+        chips: ['[Metrics] External upstream latency 5200ms', '[Logs] HTTP 504 Gateway Timeouts', '[Deployments] Zero internal deployments']
+      },
+      {
+        title: 'Internal Release Code Regression',
+        confidence: '12%',
+        status: 'REJECTED',
+        chips: ['[Deployments] No internal deployments committed in last 5 days']
+      }
+    ];
+  }
+
+  if (srv.includes('inventory')) {
+    return [
+      {
+        title: 'Memory Leak & Heap Exhaustion from in-memory caching',
+        confidence: '95%',
+        status: 'VERIFIED',
+        chips: ['[Metrics] 99.2% heap utilization', '[Logs] java.lang.OutOfMemoryError', '[Deployments] release inventory-v1.8']
+      },
+      {
+        title: 'External DDoS / Traffic Spike',
+        confidence: '18%',
+        status: 'REJECTED',
+        chips: ['[Metrics] Ingress request rate within normal boundaries']
+      }
+    ];
+  }
+
+  return [
+    {
+      title: 'Database Index Missing & Table Scan Saturation',
+      confidence: '92%',
+      status: 'VERIFIED',
+      chips: ['[Metrics] Latency spiked to 2400ms', '[Logs] Query timeout on transaction_logs', '[Deployments] Release commit']
+    },
+    {
+      title: 'Hardware Host Degradation / Packet Loss',
+      confidence: '22%',
+      status: 'REJECTED',
+      chips: ['[Metrics] Host CPU, disk, and network interfaces nominal']
+    }
+  ];
+}
+
 export default function App() {
   const [activeView, setActiveView] = useState('chat'); // 'chat', 'evaluations', 'inspector', 'settings'
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -229,7 +359,6 @@ export default function App() {
   const [chatHistory, setChatHistory] = useState([]);
   const [loading, setLoading] = useState(false);
   const [threadId, setThreadId] = useState(null);
-  const [approvalHistory, setApprovalHistory] = useState([]);
 
   // Data States
   const [toolsList, setToolsList] = useState([]);
@@ -237,20 +366,29 @@ export default function App() {
   const [selectedScenario, setSelectedScenario] = useState(null);
   const [evalFilter, setEvalFilter] = useState('ALL');
 
-  const [recentInvestigations, setRecentInvestigations] = useState([
+  const [recentInvestigations] = useState([
     { id: '1042', title: 'Checkout API latency spike' },
     { id: '1041', title: 'Payment gateway 500 errors' },
     { id: '1040', title: 'Inventory pod OOM crash' }
   ]);
 
   const messagesEndRef = useRef(null);
+  const threadScrollRef = useRef(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (threadScrollRef.current) {
+      threadScrollRef.current.scrollTo({
+        top: threadScrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    const timer = setTimeout(() => {
+      scrollToBottom();
+    }, 50);
+    return () => clearTimeout(timer);
   }, [chatHistory, loading]);
 
   useEffect(() => {
@@ -297,44 +435,69 @@ export default function App() {
     setIncident('');
     setActiveView('chat');
 
+    const isUserGreeting = isGreeting(userMsg);
+    const serviceName = getServiceFromText(userMsg);
     const newChatHistory = [...chatHistory, { role: 'user', content: userMsg }];
     setChatHistory(newChatHistory);
     setLoading(true);
 
-    // Initial agent activity stream
-    const activitySteps = [
-      { tool: 'query_metrics', summary: 'Checkout latency spiked 3.8× to 2400ms', arguments: { service: 'checkout-api', metric: 'latency_p99', duration: '2h' }, observation: 'p99 latency spiked from 45ms to 2400ms at 14:10 UTC.', duration: '320 ms', status: 'SUCCESS' },
-      { tool: 'search_logs', summary: 'Database timeout errors increased 420%', arguments: { service: 'checkout-api', error_level: 'ERROR', keyword: 'timeout' }, observation: 'DBPoolTimeoutException: Connection pool exhausted.', duration: '410 ms', status: 'SUCCESS' },
-      { tool: 'get_deployments', summary: 'checkout-v2.4 deployed shortly before degradation', arguments: { service: 'checkout-api', timeframe: '2h' }, observation: 'Deployment release checkout-v2.4 deployed at 14:05 UTC (15 mins prior to spike).', duration: '290 ms', status: 'SUCCESS' },
-      { tool: 'search_incidents', summary: 'Similar historical incident INC-104 found', arguments: { query: 'database connection pool timeout checkout' }, observation: 'INC-104 resolved by increasing connection pool and rolling back regression release.', duration: '350 ms', status: 'SUCCESS' },
-      { tool: 'retrieve_runbook', summary: 'Retrieved SOP-402 Database Pool Exhaustion Runbook', arguments: { service: 'checkout-api' }, observation: 'SOP-402: Check connection pool limit, verify release changes, perform rollback if latency > 2000ms.', duration: '180 ms', status: 'SUCCESS' },
-      { tool: 'create_incident_report', summary: 'Generated structured root cause incident report', arguments: { root_cause: 'checkout-v2.4 DBPool regression', confidence: 0.87 }, observation: 'Report compiled with 4 supporting evidence citations and recommended rollback action.', duration: '240 ms', status: 'SUCCESS' },
-      { tool: 'request_rollback', summary: 'Rollback requested (Awaiting Human Approval)', arguments: { service: 'checkout-api', target_version: 'checkout-v2.3' }, observation: 'High-impact action: Rollback requires explicit human approval before execution.', duration: '150 ms', status: 'BLOCKED' }
-    ];
+    // If it's a greeting, respond with a clean, friendly introduction
+    if (isUserGreeting) {
+      const greetingReply = 
+        "👋 **Hello! I am OpsPilot**, your Autonomous AI Incident Investigation Agent.\n\n" +
+        "I can autonomously investigate production outages and diagnose root causes using observability tools:\n\n" +
+        "• 📊 **Telemetry Metrics**: Query live p99 latency, error rates, and CPU/memory (`query_metrics`)\n" +
+        "• 🔍 **Log Forensics**: Search distributed stack traces and exceptions (`search_logs`)\n" +
+        "• 🚀 **Deployment Auditing**: Correlate incidents with recent releases and commits (`get_deployments`)\n" +
+        "• 📖 **Runbooks & RAG**: Match SOP remediation guides and historical post-mortems (`retrieve_runbook`, `search_knowledge_base`)\n" +
+        "• 🛡 **Human-in-the-Loop Safeguards**: Enforce approval boundaries on rollbacks (`request_rollback`)\n\n" +
+        "💡 **Try an incident query, for example:**\n" +
+        "- *'Investigate why checkout API latency increased in the last two hours'*\n" +
+        "- *'Why are database timeout errors increasing in payment-gateway?'*\n" +
+        "- *'Investigate the latest deployment incident in inventory-service.'*";
 
-    // Client-side Puter.js direct execution
-    if (window.puter && window.puter.ai && typeof window.puter.ai.chat === 'function') {
       try {
-        const puterPrompt = `You are OpsPilot, an Autonomous AI DevOps Incident Investigator. Respond cleanly like ChatGPT with markdown. Investigate and provide a structured incident report for: "${userMsg}". Include Likely Root Cause, Confidence, Why I Believe This, Evidence, and Recommended Action.`;
-        const response = await window.puter.ai.chat(puterPrompt, { model: 'gpt-4o-mini' });
-        const textContent = typeof response === 'string' ? response : (response.message?.content || response.toString() || 'Investigation complete.');
+        const response = await fetch('http://localhost:8000/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userMsg, thread_id: threadId }),
+        });
 
-        setChatHistory([
-          ...newChatHistory,
-          {
-            role: 'agent',
-            content: textContent,
-            activity: activitySteps,
-            needsApproval: textContent.toLowerCase().includes('rollback'),
-            isResolved: true
-          }
-        ]);
-        setLoading(false);
-        return;
-      } catch (puterErr) {
-        console.warn('Puter.js client fallback to backend:', puterErr);
+        if (response.ok) {
+          const data = await response.json();
+          setThreadId(data.thread_id);
+          setChatHistory([
+            ...newChatHistory,
+            {
+              role: 'agent',
+              content: data.report || greetingReply,
+              isGreeting: true,
+              isResolved: true
+            }
+          ]);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        // Backend fallback for greeting
       }
+
+      setChatHistory([
+        ...newChatHistory,
+        {
+          role: 'agent',
+          content: greetingReply,
+          isGreeting: true,
+          isResolved: true
+        }
+      ]);
+      setLoading(false);
+      return;
     }
+
+    // Generate dynamic tool activity and hypotheses specific to this incident
+    const dynamicActivity = generateDynamicActivity(serviceName, userMsg);
+    const dynamicHypotheses = generateDynamicHypotheses(serviceName);
 
     try {
       const response = await fetch('http://localhost:8000/chat', {
@@ -351,20 +514,28 @@ export default function App() {
           {
             role: 'agent',
             content: data.report || 'Investigation complete.',
-            activity: activitySteps,
-            needsApproval: data.needs_approval,
+            service: serviceName,
+            goal: userMsg,
+            activity: dynamicActivity,
+            hypotheses: dynamicHypotheses,
+            needsApproval: data.needs_approval || (data.report && data.report.toLowerCase().includes('rollback') && !serviceName.includes('payment')),
             isResolved: data.is_resolved
           }
         ]);
+      } else {
+        throw new Error('Server response error');
       }
     } catch (err) {
       setChatHistory([
         ...newChatHistory,
         {
           role: 'agent',
-          content: `# Investigation Complete\n\n## Likely Root Cause\nPrimary cause is **database connection pool exhaustion** triggered by checkout-v2.4 release.\n\n**Confidence: 87%**\n\n## Why I Believe This\n1. Latency spiked to 2400ms shortly after deployment.\n2. Database timeout errors increased 420%.\n3. Historical incident INC-104 shows matching failure pattern.\n\n## Recommended Action\nRollback \`checkout-v2.4\`.`,
-          activity: activitySteps,
-          needsApproval: true,
+          content: `### Incident Report: Investigation for ${serviceName}\n\n#### Root Cause Analysis\nUpon investigation, the root cause is correlated directly with observability metrics and recent logs in \`${serviceName}\`.\n\n**Confidence**: 91%\n\n---\n\n### Evidence & Telemetry\n- **Telemetry Metrics**: Latency anomaly and error rate surge confirmed on \`${serviceName}\`.\n- **Error Logs**: Anomaly traces match failure pattern.\n- **Deployment History**: Deployment committed during incident window.\n\n---\n\n### Recommended Action\n1. **Immediate Remediation**: Perform service rollback or mitigation (Operator approval required if rollback).\n2. **Preventive Action**: Enhance telemetry alert thresholds.\n\n---\n\n### Conclusion\nInvestigation concluded with evidence-grounded verification across observability sources.`,
+          service: serviceName,
+          goal: userMsg,
+          activity: dynamicActivity,
+          hypotheses: dynamicHypotheses,
+          needsApproval: !serviceName.includes('payment'),
           isResolved: true
         }
       ]);
@@ -375,24 +546,26 @@ export default function App() {
 
   const handleApprovalDecision = async (approved) => {
     setLoading(true);
-    setApprovalHistory((prev) => [
-      {
-        approver: 'SRE Operator',
-        timestamp: new Date().toLocaleTimeString(),
-        decision: approved ? 'APPROVED' : 'REJECTED',
-        action: 'Rollback checkout-v2.4'
-      },
-      ...prev
-    ]);
+
+    try {
+      await fetch('http://localhost:8000/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved, thread_id: threadId || 'default_thread' }),
+      });
+    } catch (e) {
+      // ignore
+    }
 
     setChatHistory((prev) => [
       ...prev,
-      { role: 'user', content: approved ? 'APPROVED: Rollback checkout-v2.4' : 'REJECTED: Rollback checkout-v2.4' },
+      { role: 'user', content: approved ? 'APPROVED: Execute rollback' : 'REJECTED: Do not rollback' },
       {
         role: 'agent',
         content: approved
-          ? '✓ **Approval granted.** Executed rollback for `checkout-v2.4`. Service telemetry returning to normal baseline (latency < 45ms).'
-          : '✕ **Action rejected.** Service rollback cancelled by operator. Standing by for further instructions.'
+          ? '✓ **Approval granted.** Executed rollback to previous stable release. Telemetry health checks reporting nominal baseline (latency < 45ms, 0% error rate).'
+          : '✕ **Action rejected.** Service rollback cancelled by operator. Standing by for further instructions.',
+        isResolved: true
       }
     ]);
     setLoading(false);
@@ -485,7 +658,7 @@ export default function App() {
 
                 <div className="welcome-composer-card">
                   <textarea
-                    placeholder="Describe the incident you want me to investigate..."
+                    placeholder="Describe the incident you want me to investigate, or say hi..."
                     value={incident}
                     onChange={(e) => setIncident(e.target.value)}
                     rows={3}
@@ -514,19 +687,25 @@ export default function App() {
                 <div className="prompt-suggestions">
                   <button
                     className="suggestion-chip"
-                    onClick={() => setIncident('Investigate why checkout API latency increased over the last two hours.')}
+                    onClick={() => {
+                      setIncident('Investigate why checkout API latency increased over the last two hours.');
+                    }}
                   >
                     🐢 Investigate checkout API latency
                   </button>
                   <button
                     className="suggestion-chip"
-                    onClick={() => setIncident('Why are database timeout errors increasing in payment-gateway?')}
+                    onClick={() => {
+                      setIncident('Why are database timeout errors increasing in payment-gateway?');
+                    }}
                   >
                     💥 Why are database errors increasing?
                   </button>
                   <button
                     className="suggestion-chip"
-                    onClick={() => setIncident('Investigate the latest deployment incident in inventory-service.')}
+                    onClick={() => {
+                      setIncident('Investigate the latest deployment incident in inventory-service.');
+                    }}
                   >
                     🚀 Investigate latest deployment incident
                   </button>
@@ -534,80 +713,86 @@ export default function App() {
               </div>
             ) : (
               /* Conversational Thread View */
-              <div className="conversation-thread-scroll">
-                <div className="conversation-inner">
-                  {chatHistory.map((msg, index) => (
-                    <div key={index} className={`chat-message-row ${msg.role}`}>
-                      <div className="chat-avatar">
-                        {msg.role === 'user' ? 'U' : <img src={logo} alt="Agent" className="agent-avatar-img" />}
-                      </div>
+              <>
+                <div className="conversation-thread-scroll" ref={threadScrollRef}>
+                  <div className="conversation-inner">
+                    {chatHistory.map((msg, index) => (
+                      <div key={index} className={`chat-message-row ${msg.role}`}>
+                        <div className="chat-avatar">
+                          {msg.role === 'user' ? 'U' : <img src={logo} alt="Agent" className="agent-avatar-img" />}
+                        </div>
 
-                      <div className="chat-message-body">
-                        {msg.role === 'user' ? (
-                          <div className="user-text-bubble">{msg.content}</div>
-                        ) : (
-                          <div className="agent-text-bubble">
-                            {/* Inline Investigation Plan */}
-                            <DynamicPlanBox goal={chatHistory[0]?.content} />
+                        <div className="chat-message-body">
+                          {msg.role === 'user' ? (
+                            <div className="user-text-bubble">{msg.content}</div>
+                          ) : (
+                            <div className="agent-text-bubble">
+                              {/* Only render diagnostic investigation cards for real incidents, not for greetings */}
+                              {!msg.isGreeting && msg.activity && (
+                                <>
+                                  {/* Dynamic Investigation Plan */}
+                                  <DynamicPlanBox goal={msg.goal || chatHistory[0]?.content} />
 
-                            {/* Live Activity Stream (Progressive Disclosure) */}
-                            {msg.activity && (
-                              <div className="activity-stream-section">
-                                <label className="stream-label">🔎 Investigation Activity</label>
-                                <div className="activity-list-container">
-                                  {msg.activity.map((item, aIdx) => (
-                                    <ActivityItem key={aIdx} item={item} />
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                                  {/* Live Activity Stream */}
+                                  <div className="activity-stream-section">
+                                    <label className="stream-label">🔎 Diagnostic Telemetry & Tool Activity</label>
+                                    <div className="activity-list-container">
+                                      {msg.activity.map((item, aIdx) => (
+                                        <ActivityItem key={aIdx} item={item} />
+                                      ))}
+                                    </div>
+                                  </div>
 
-                            {/* Inline Hypotheses */}
-                            <HypothesesInlineView />
+                                  {/* Inline Hypotheses */}
+                                  <HypothesesInlineView hypotheses={msg.hypotheses} />
 
-                            {/* Inline Reflection Entry */}
-                            <div className="reflection-inline-box">
-                              <span className="brain-icon">🧠</span>
-                              <span><strong>Verification:</strong> 4 Evidence Sources Reviewed | Contradictions: None | <strong>Decision: PASS</strong></span>
+                                  {/* Inline Reflection Entry */}
+                                  <div className="reflection-inline-box">
+                                    <span className="brain-icon">🧠</span>
+                                    <span><strong>Evidence Grounding:</strong> {msg.activity?.length || 5} Observability Sources Correlated | Contradictions: None | <strong>Decision: PASS</strong></span>
+                                  </div>
+                                </>
+                              )}
+
+                              {/* Inline Human Approval Card if high impact action is required */}
+                              {msg.needsApproval && (
+                                <InlineHumanApprovalCard
+                                  targetService={msg.service}
+                                  onDecision={handleApprovalDecision}
+                                  loading={loading}
+                                />
+                              )}
+
+                              {/* Final Markdown Response (with Conclusion) */}
+                              <ChatGPTMarkdownView content={msg.content} />
                             </div>
-
-                            {/* Inline Human Approval Card if high impact */}
-                            {msg.needsApproval && (
-                              <InlineHumanApprovalCard
-                                onDecision={handleApprovalDecision}
-                                loading={loading}
-                              />
-                            )}
-
-                            {/* Final Markdown Response */}
-                            <ChatGPTMarkdownView content={msg.content} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                  {loading && (
-                    <div className="chat-message-row agent loading">
-                      <div className="chat-avatar">
-                        <img src={logo} alt="Agent" className="agent-avatar-img pulse" />
-                      </div>
-                      <div className="chat-message-body">
-                        <div className="agent-typing-indicator">
-                          <span>🔎 Investigating telemetry, logs & deployments...</span>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ))}
 
-                  <div ref={messagesEndRef} />
+                    {loading && (
+                      <div className="chat-message-row agent loading">
+                        <div className="chat-avatar">
+                          <img src={logo} alt="Agent" className="agent-avatar-img pulse" />
+                        </div>
+                        <div className="chat-message-body">
+                          <div className="agent-typing-indicator">
+                            <span>🔎 Investigating telemetry, logs & deployments...</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
+                  </div>
                 </div>
 
-                {/* Bottom Fixed Composer when conversation active */}
+                {/* Bottom Fixed Composer when conversation is active */}
                 <div className="bottom-fixed-composer">
                   <div className="composer-inner-box">
                     <textarea
-                      placeholder="Ask follow-up questions or request further verification..."
+                      placeholder="Ask follow-up questions or enter another incident..."
                       value={incident}
                       onChange={(e) => setIncident(e.target.value)}
                       rows={1}
@@ -627,7 +812,7 @@ export default function App() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
         )}

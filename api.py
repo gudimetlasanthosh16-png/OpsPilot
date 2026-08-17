@@ -78,6 +78,9 @@ class ChatResponse(BaseModel):
     needs_approval: bool
     thread_id: str
     trajectory: Optional[list] = None
+    observations: Optional[list] = None
+    tool_history: Optional[list] = None
+    goal: Optional[str] = None
 
 @app.get("/config")
 def get_config():
@@ -117,8 +120,12 @@ def chat_endpoint(request: ChatRequest):
             is_resolved=state.get("is_resolved", False),
             needs_approval=state.get("needs_approval", False),
             thread_id=thread_id,
-            trajectory=state.get("messages", [])
+            trajectory=state.get("messages", []),
+            observations=state.get("observations", []),
+            tool_history=state.get("tool_history", []),
+            goal=state.get("goal", request.message)
         )
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -8,6 +8,10 @@ class ToolRegistry:
     def register(self, name: str, func: Callable):
         self._tools[name] = func
         
+    @property
+    def tools(self) -> Dict[str, Callable]:
+        return self._tools
+        
     def get_tool(self, name: str) -> Callable:
         return self._tools.get(name)
         
