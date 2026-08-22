@@ -598,6 +598,34 @@ Investigation for `{service}` completed successfully. The diagnosis is verified 
                 ]
             }
 
+        # Guard against extremely short or accidental inputs (e.g. 't', single characters)
+        clean_input = incident_request.strip()
+        if len(clean_input) < 3:
+            clarification_msg = (
+                f"⚠️ **Input too brief to start an investigation** (received: `\"{clean_input}\"`).\n\n"
+                "Please describe the incident with more detail or specify the affected service.\n\n"
+                "💡 **Examples:**\n"
+                "- *'checkout-api is returning 500 errors'*\n"
+                "- *'Investigate high latency on payment-gateway'*\n"
+                "- *'Check logs and deployments for inventory-service'*\n"
+                "- Type `/help` for available CLI commands."
+            )
+            if self.callbacks and "on_thought" in self.callbacks:
+                self.callbacks["on_thought"]("Input too short or ambiguous. Prompting for a clearer incident query.")
+            
+            return {
+                "goal": incident_request,
+                "is_resolved": True,
+                "final_report": clarification_msg,
+                "needs_approval": False,
+                "observations": [],
+                "tool_history": [],
+                "messages": [
+                    {"role": "user", "content": incident_request},
+                    {"role": "assistant", "content": clarification_msg}
+                ]
+            }
+
         # ALWAYS create a fresh, active investigation state for each unique incident request
         self.state = {
             "goal": incident_request,

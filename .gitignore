@@ -33,6 +33,7 @@ frontend/.vite/
 .idea/
 .DS_Store
 Thumbs.db
-# Temporary text extracts
+# Temporary text extracts & incident reports
 pdf_text.txt
 pdf_text_*.txt
+incident_report_*.pdf
