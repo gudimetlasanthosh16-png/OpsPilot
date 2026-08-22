@@ -366,6 +366,28 @@ export default function App() {
   const [selectedScenario, setSelectedScenario] = useState(null);
   const [evalFilter, setEvalFilter] = useState('ALL');
 
+  // Loading tagline sequence
+  const [loadingStep, setLoadingStep] = useState(0);
+  const loadingTaglines = [
+    '⚡ OpsPilot is initializing autonomous incident investigation...',
+    '📊 Querying telemetry metrics (p99 latency, error rates, CPU/memory)...',
+    '🔍 Ingesting distributed logs & searching stack traces...',
+    '🚀 Auditing recent service deployments & configuration rollouts...',
+    '📖 Retrieving SOP runbooks & matching historical incident post-mortems...',
+    '🧠 Correlating observability evidence & finalizing incident report...'
+  ];
+
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      setLoadingStep(0);
+      interval = setInterval(() => {
+        setLoadingStep((prev) => (prev + 1) % loadingTaglines.length);
+      }, 700);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
+
   const [recentInvestigations] = useState([
     { id: '1042', title: 'Checkout API latency spike' },
     { id: '1041', title: 'Payment gateway 500 errors' },
@@ -500,11 +522,15 @@ export default function App() {
     const dynamicHypotheses = generateDynamicHypotheses(serviceName);
 
     try {
-      const response = await fetch('http://localhost:8000/chat', {
+      const fetchPromise = fetch('http://localhost:8000/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, thread_id: threadId }),
       });
+
+      // Ensure a realistic minimum loading window (1.8s) so the team leader sees the investigation tagline progression
+      const minDelayPromise = new Promise((res) => setTimeout(res, 1800));
+      const [response] = await Promise.all([fetchPromise, minDelayPromise]);
 
       if (response.ok) {
         const data = await response.json();
@@ -526,6 +552,7 @@ export default function App() {
         throw new Error('Server response error');
       }
     } catch (err) {
+      await new Promise((res) => setTimeout(res, 1200));
       setChatHistory([
         ...newChatHistory,
         {
@@ -577,12 +604,24 @@ export default function App() {
     return true;
   }) : [];
 
+  const handleNavClick = (viewName) => {
+    setActiveView(viewName);
+    if (window.innerWidth <= 768) {
+      setIsSidebarOpen(false);
+    }
+  };
+
   return (
     <div className="chatgpt-app-container">
+      {/* Mobile Backdrop */}
+      {isSidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
       {/* Minimal Collapsible Sidebar */}
       <aside className={`chatgpt-sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`}>
         <div className="sidebar-top">
-          <button className="btn-new-chat" onClick={handleStartNewInvestigation}>
+          <button className="btn-new-chat" onClick={() => { handleStartNewInvestigation(); if (window.innerWidth <= 768) setIsSidebarOpen(false); }}>
             <span className="plus-icon">+</span> New Investigation
           </button>
         </div>
@@ -591,7 +630,7 @@ export default function App() {
           <label className="section-label">Recent Investigations</label>
           <ul className="history-list">
             {recentInvestigations.map((item) => (
-              <li key={item.id} className="history-item" onClick={() => setActiveView('chat')}>
+              <li key={item.id} className="history-item" onClick={() => handleNavClick('chat')}>
                 <span className="item-icon">💬</span>
                 <span className="item-title">{item.title}</span>
               </li>
@@ -604,13 +643,13 @@ export default function App() {
         <div className="sidebar-nav-section">
           <label className="section-label">DevOps Control & Benchmarks</label>
           <ul className="nav-menu">
-            <li className={`nav-item ${activeView === 'evaluations' ? 'active' : ''}`} onClick={() => setActiveView('evaluations')}>
+            <li className={`nav-item ${activeView === 'evaluations' ? 'active' : ''}`} onClick={() => handleNavClick('evaluations')}>
               📊 Evaluation Center (30 Scenarios)
             </li>
-            <li className={`nav-item ${activeView === 'inspector' ? 'active' : ''}`} onClick={() => setActiveView('inspector')}>
+            <li className={`nav-item ${activeView === 'inspector' ? 'active' : ''}`} onClick={() => handleNavClick('inspector')}>
               🔍 Trajectory & Failure Inspector
             </li>
-            <li className={`nav-item ${activeView === 'settings' ? 'active' : ''}`} onClick={() => setActiveView('settings')}>
+            <li className={`nav-item ${activeView === 'settings' ? 'active' : ''}`} onClick={() => handleNavClick('settings')}>
               ⚙️ Engine & Safety Controls
             </li>
           </ul>
@@ -777,14 +816,27 @@ export default function App() {
                           <img src={logo} alt="Agent" className="agent-avatar-img pulse" />
                         </div>
                         <div className="chat-message-body">
-                          <div className="agent-typing-indicator">
-                            <span>🔎 Investigating telemetry, logs & deployments...</span>
+                          <div className="agent-loading-card">
+                            <div className="loading-badge-row">
+                              <span className="loading-spinner-dot" />
+                              <span className="loading-badge-title">OPSPILOT AUTONOMOUS INVESTIGATION ACTIVE</span>
+                            </div>
+                            <div className="agent-typing-indicator">
+                              <span className="loading-tagline-text">{loadingTaglines[loadingStep]}</span>
+                            </div>
+                            <div className="loading-progress-track">
+                              <div
+                                className="loading-progress-bar"
+                                style={{ width: `${Math.min(100, (loadingStep + 1) * 20)}%` }}
+                              />
+                            </div>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    <div ref={messagesEndRef} />
+                    {/* Dedicated bottom spacer so conclusions and final reports are never hidden under the bottom chat bar */}
+                    <div className="chat-scroll-spacer" ref={messagesEndRef} />
                   </div>
                 </div>
 

@@ -281,8 +281,10 @@ class BeautifulOpsPilotCLI:
         }
 
         try:
-            thread_id = f"cli_{scenario_id or int(time.time())}"
-            state = self.agent.run(incident, thread_id=thread_id, callbacks=callbacks)
+            with self.console.status("[bold cyan]⚡ OpsPilot is loading: querying telemetry, analyzing logs & correlating root cause...[/bold cyan]", spinner="dots"):
+                time.sleep(1.2)
+                thread_id = f"cli_{scenario_id or int(time.time())}"
+                state = self.agent.run(incident, thread_id=thread_id, callbacks=callbacks)
 
             final_report = state.get("final_report", "")
             is_resolved = state.get("is_resolved", False)
